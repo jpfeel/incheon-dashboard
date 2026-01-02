@@ -176,7 +176,7 @@ def generate_kakao_map_html(hubs, schools, bookstores):
     </head>
     <body>
         <div id="map"></div>
-        <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey={KAKAO_KEY}"></script>
+        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=<script type="text/jav
         <script>
             var hubs = {hubs_json};
             var schools = {schools_json};
