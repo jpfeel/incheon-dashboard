@@ -2,14 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit.components.v1 as components
 
 # ---------------------------------------------------------
 # 1. 페이지 설정
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="인천 3-Active 통합 성과 대시보드",
+    page_title="인천 3-Active 통합 대시보드",
     page_icon="🗺️",
     layout="wide"
 )
@@ -18,11 +17,11 @@ st.title("🗺️ 인천 3-Active 통합 성과 대시보드")
 st.markdown("""
 **Hub & Spoke 네트워크 활동성**과 그로 인한 **사회경제적 파급효과**를 종합적으로 분석합니다.
 * **좌표 보정 완료**: 실제 시설 위치 기반 시각화
-* **마우스 오버**: 지도 아이콘 위에 마우스를 올리면 상세 정보 확인 가능
+* **HTTPS 적용**: 배포 환경 호환성 강화
 """)
 
 # ---------------------------------------------------------
-# 2. 데이터 준비 (실제 좌표 반영)
+# 2. 데이터 준비
 # ---------------------------------------------------------
 # (1) 거점 도서관 (Hub)
 hubs_data = {
@@ -111,7 +110,6 @@ show_bookstores = st.sidebar.checkbox("📚 협력 서점 (Store)", value=True)
 filtered_hubs = df_hubs[df_hubs['region'].isin(selected_regions)]
 filtered_hubs_names = filtered_hubs['name'].tolist()
 
-# 선택 여부에 따라 데이터프레임 조정
 if not show_hubs:
     display_hubs = pd.DataFrame(columns=filtered_hubs.columns)
 else:
@@ -128,13 +126,14 @@ else:
     filtered_bookstores = pd.DataFrame(columns=df_bookstores.columns)
 
 # ---------------------------------------------------------
-# 4. 카카오맵 HTML 생성
+# 4. 카카오맵 HTML 생성 (HTTPS 수정 & Key 검증 완료)
 # ---------------------------------------------------------
 def generate_kakao_map_html(hubs, schools, bookstores):
     hubs_json = hubs.to_json(orient='records', force_ascii=False)
     schools_json = schools.to_json(orient='records', force_ascii=False)
     bookstores_json = bookstores.to_json(orient='records', force_ascii=False)
     
+    # [중요] 여기에 태그(script)가 들어가면 안 됩니다. 오직 키 값만!
     KAKAO_KEY = "a355516d451bb52744d83c5763eb1560"
 
     html_code = f"""
@@ -145,7 +144,6 @@ def generate_kakao_map_html(hubs, schools, bookstores):
         <style>
             html, body, #map {{ width: 100%; height: 100%; margin: 0; padding: 0; }}
             
-            /* 아이콘 스타일 */
             .map-icon {{
                 display: flex; justify-content: center; align-items: center;
                 border-radius: 50%; background: white; cursor: pointer;
@@ -165,7 +163,6 @@ def generate_kakao_map_html(hubs, schools, bookstores):
             .school {{ border: 2px solid #3498db; }}
             .bookstore {{ border: 2px solid #f39c12; }}
             
-            /* 라벨 스타일 */
             .label-static {{
                 position: absolute; bottom: 45px; left: -50%; transform: translateX(25%);
                 background: rgba(255,255,255,0.9); padding: 3px 6px; border-radius: 4px;
@@ -176,7 +173,9 @@ def generate_kakao_map_html(hubs, schools, bookstores):
     </head>
     <body>
         <div id="map"></div>
-        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=<script type="text/jav
+        
+        <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey={KAKAO_KEY}"></script>
+        
         <script>
             var hubs = {hubs_json};
             var schools = {schools_json};
@@ -194,16 +193,13 @@ def generate_kakao_map_html(hubs, schools, bookstores):
                 var iconClass = isCold ? 'map-icon hub-icon hub-cold' : 'map-icon hub-icon';
                 var color = isCold ? '#e74c3c' : '#2ecc71';
                 
-                // 마우스 오버 툴팁 (title 속성)
                 var tooltip = hub.name + " (" + hub.status + ")\\n권역: " + hub.region;
 
-                // 권역 원
                 new kakao.maps.Circle({{
                     map: map, center: pos, radius: 1500, strokeWeight: 0,
                     fillColor: color, fillOpacity: 0.1
                 }});
 
-                // 아이콘 및 라벨
                 var content = '<div class="' + iconClass + '" title="' + tooltip + '">🏛️</div>' + 
                               '<div class="label-static">' + hub.name + '</div>';
 
@@ -265,7 +261,7 @@ with col_map:
 with col_stat:
     st.subheader("② 통합 성과 지표 (KPI)")
     
-    # [1] 활동성 지표 (Old)
+    # [1] 활동성 지표
     st.markdown("#### 🏃‍♂️ 네트워크 활동성")
     total_school = filtered_schools['traffic'].sum() if not filtered_schools.empty else 0
     total_store = filtered_bookstores['traffic'].sum() if not filtered_bookstores.empty else 0
@@ -276,7 +272,7 @@ with col_stat:
     
     st.markdown("---")
 
-    # [2] 사회경제적 파급효과 (New - 이미지 데이터 반영)
+    # [2] 사회경제적 파급효과
     st.markdown("#### 💰 사회경제적 파급효과 & 행복지수")
     
     m1, m2 = st.columns(2)
@@ -289,11 +285,10 @@ with col_stat:
 
     st.markdown("---")
 
-    # [3] 상세 분석 차트 (탭으로 구성)
+    # [3] 상세 분석 차트
     tab1, tab2, tab3 = st.tabs(["월별 지속성", "소비 패턴 변화", "걷기-독서 상관관계"])
     
     with tab1:
-        # (Old) 월별 활동 지속성
         df_line = pd.DataFrame({
             '월': [f'{i}월' for i in range(1, 13)],
             '이벤트 참여': [100, 150, 300, 1200, 800, 200, 200, 300, 1500, 900, 200, 150],
@@ -306,8 +301,6 @@ with col_stat:
         st.plotly_chart(fig_line, use_container_width=True)
 
     with tab2:
-        # (New) 문화 소비 패턴 변화
-        st.caption("디지털 게임/오락 위주 소비에서 도서/공연/전시 등 건전한 여가 비용으로의 전환")
         df_spending = pd.DataFrame({
             'Category': ['디지털 게임/오락', '도서/공연/전시'],
             'Before': [70, 30],
@@ -321,7 +314,6 @@ with col_stat:
         st.plotly_chart(fig_bar, use_container_width=True)
 
     with tab3:
-        # (Old) 걷기-독서 상관관계
         df_scatter = pd.DataFrame({
             '주간 평균 걸음 수': np.random.randint(2000, 12000, 100),
             '독서 완독 점수': (np.random.randint(2000, 12000, 100) * 0.005) + np.random.randint(10, 30, 100)
